@@ -1,0 +1,13 @@
+# dependencies
+node_modules
+
+# testing
+coverage
+
+# production
+dist
+
+# misc
+package-lock.json
+npm-debug.log*
+coverage
