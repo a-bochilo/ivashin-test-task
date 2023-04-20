@@ -1,4 +1,3 @@
-// ========================== nest ==========================
 import {
   Body,
   Controller,
@@ -8,12 +7,12 @@ import {
   UsePipes,
   ValidationPipe,
 } from "@nestjs/common";
-import { ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
 
 // ========================== dto & enum ==========================
 import { UserSignInDto } from "./dtos/user-sign-in.dto";
 import { TokenDto } from "../security/dtos/token.dto";
 import { UserDto } from "../users/dtos/user.dto";
+import { UserSignUpDto } from "./dtos/user-sign-up.dto";
 import { UserPermissions } from "../../shared/types/user-permissions.enum";
 
 // ========================== services ====================
@@ -24,6 +23,9 @@ import { SecurityService } from "../security/security.service";
 import { AuthPermissionsGuard } from "../security/decorators/auth-permissions-guard.decorator";
 import { User } from "../users/decorators/user.decorator";
 
+// ========================== swagger ==========================
+import { ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
+
 @ApiTags("Authentication")
 @Controller("auth")
 export class AuthController {
@@ -32,7 +34,7 @@ export class AuthController {
     private readonly securityService: SecurityService
   ) {}
 
-  @Post("/signUp")
+  @Post("/sign-up")
   @ApiOperation({ summary: "Sign up with email, password and other" })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -40,11 +42,11 @@ export class AuthController {
     type: TokenDto,
   })
   @UsePipes(new ValidationPipe())
-  async signUp(@Body() userDto: UserDto): Promise<TokenDto> {
-    return await this.authService.signUp(userDto);
+  async signUp(@Body() userSignUpDto: UserSignUpDto): Promise<TokenDto> {
+    return await this.authService.signUp(userSignUpDto);
   }
 
-  @Post("/signIn")
+  @Post("/sign-in")
   @ApiOperation({ summary: "Sign in with email and password" })
   @ApiResponse({
     status: HttpStatus.OK,
@@ -59,7 +61,8 @@ export class AuthController {
   @Get("/refresh-token")
   @AuthPermissionsGuard(UserPermissions.refreshToken)
   async refreshToken(@User() currentUser: UserDto): Promise<TokenDto> {
-    const user = await this.securityService.getUser(currentUser.id);
+    const user = await this.securityService.getUserWithRole(currentUser.id);
+
     return this.securityService.generateJwt(user);
   }
 }

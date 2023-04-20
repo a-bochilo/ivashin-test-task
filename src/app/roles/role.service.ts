@@ -1,132 +1,101 @@
-// ============================ nest ====================================
 import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
-
-// ============================ i18n ====================================
-import { I18nContext } from "nestjs-i18n";
-
-// ========================== repositories ==============================
-import { RoleRepository } from "./repos/role.repository";
+import { InjectRepository } from "@nestjs/typeorm";
+import { DeleteResult, Repository } from "typeorm";
 
 // ========================== dto's & types ==========================
-import { CreateRoleDto } from "./dtos/role-create.dto";
+import { RoleDto } from "./dtos/role.dto";
+import { UserRoles } from "../../shared/types/user-roles.enum";
 
 // ========================== entities ===============================
 import { RoleEntity } from "./entities/role.entity";
 
-// ========================== enums =====================================
-import { UserRoles } from "../../shared/types/user-roles.enum";
-
 @Injectable()
 export class RoleService {
-  constructor(private readonly roleRepository: RoleRepository) {}
+  constructor(
+    @InjectRepository(RoleEntity)
+    private readonly roleRepository: Repository<RoleEntity>
+  ) {}
 
-  // async createRole(createRoleDto: CreateRoleDto): Promise<RoleEntity> {
-  //   const existedRole = await this.roleRepository.getRoleByName(
-  //     createRoleDto.name
-  //   );
-  //   if (existedRole) {
-  //     throw new HttpException(
-  //       `${I18nContext.current().t("errors.roles.roleAlreadyExist")}: '${
-  //         existedRole.name
-  //       }'`,
-  //       HttpStatus.BAD_REQUEST
-  //     );
-  //   }
+  async createRole(createRoleDto: RoleDto): Promise<RoleEntity> {
+    const existedRole = await this.roleRepository.findOneBy({
+      name: createRoleDto.name,
+    });
 
-  //   if (createRoleDto.type === UserRoles.superadmin) {
-  //     throw new HttpException(
-  //       `${I18nContext.current().t("errors.roles.roleSuperuserLimit")}`,
-  //       HttpStatus.NOT_FOUND
-  //     );
-  //   }
-  //   return await this.roleRepository.createRole(createRoleDto);
-  // }
+    if (existedRole) {
+      throw new HttpException(
+        `Role '${createRoleDto.name}' already exists`,
+        HttpStatus.UNPROCESSABLE_ENTITY
+      );
+    }
 
-  // async getRoleByType(roleType: UserRoles): Promise<RoleEntity> {
-  //   const role = await this.roleRepository.getRoleByType(roleType);
-  //   if (!role) {
-  //     throw new HttpException(
-  //       `${I18nContext.current().t(
-  //         "errors.roles.roleDoesNotExist"
-  //       )}: '${roleType}'`,
-  //       HttpStatus.BAD_REQUEST
-  //     );
-  //   }
-  //   return role;
-  // }
+    if (createRoleDto.type === UserRoles.superadmin) {
+      throw new HttpException(
+        `It is not allowed to create roles with superadmin type`,
+        HttpStatus.UNPROCESSABLE_ENTITY
+      );
+    }
 
-  // async getAll() {
-  //   return await this.roleRepository.getAll();
-  // }
+    const newRole = this.roleRepository.create({
+      created: new Date(),
+      updated: new Date(),
+      name: createRoleDto.name,
+      type: createRoleDto.type,
+      permissions: createRoleDto.permissions,
+    });
 
-  // async getRoleById(id: number) {
-  //   const role = await this.roleRepository.getById(id);
-  //   if (!role) {
-  //     throw new HttpException(
-  //       `${I18nContext.current().t("errors.roles.roleDoesNotExist")}: '${id}'`,
-  //       HttpStatus.BAD_REQUEST
-  //     );
-  //   }
-  //   return role;
-  // }
+    return await this.roleRepository.save(newRole);
+  }
 
-  // async deleteRole(id: number): Promise<HttpStatus> {
-  //   const role = await this.roleRepository.getById(id);
+  async getAll(): Promise<RoleEntity[]> {
+    return await this.roleRepository.find();
+  }
 
-  //   if (role.type === UserRoles.superadmin) {
-  //     throw new HttpException(
-  //       `${I18nContext.current().t("errors.roles.roleSuperuserLimit")}`,
-  //       HttpStatus.NOT_FOUND
-  //     );
-  //   }
+  async getRoleById(id: string): Promise<RoleEntity> {
+    const role = await this.roleRepository.findOneBy({ id: +id });
 
-  //   if (await this.roleRepository.deleteRole(id)) {
-  //     return HttpStatus.OK;
-  //   } else {
-  //     throw new HttpException(
-  //       `${I18nContext.current().t("errors.roles.roleDoesNotExist")}: '${id}'`,
-  //       HttpStatus.BAD_REQUEST
-  //     );
-  //   }
-  // }
+    if (!role) {
+      throw new HttpException(`Role does not exist`, HttpStatus.BAD_REQUEST);
+    }
 
-  // async updateRole(
-  //   roleId: number,
-  //   createRoleDto: CreateRoleDto
-  // ): Promise<RoleEntity> {
-  //   //=============== get a role, and verify its existence in the database ================================
-  //   const role = await this.roleRepository.getById(roleId);
-  //   if (!role) {
-  //     throw new HttpException(
-  //       `${I18nContext.current().t("errors.roles.roleDoesNotExist")}`,
-  //       HttpStatus.NOT_FOUND
-  //     );
-  //   }
+    return role;
+  }
 
-  //   //=============== get a role array by name, and verify its existence in the database ==================
-  //   const rolesByName = createRoleDto.name
-  //     ? await this.roleRepository.getRolesByName(createRoleDto?.name)
-  //     : null;
-  //   if (
-  //     rolesByName?.length &&
-  //     (rolesByName.length > 1 || rolesByName[0]?.id !== +roleId)
-  //   ) {
-  //     throw new HttpException(
-  //       `${I18nContext.current().t("errors.roles.roleAlreadyExist")}`,
-  //       HttpStatus.NOT_FOUND
-  //     );
-  //   }
+  async deleteRole(id: string): Promise<DeleteResult> {
+    const role = await this.roleRepository.findOneBy({ id: +id });
 
-  //   if (role.type === UserRoles.superadmin) {
-  //     throw new HttpException(
-  //       `${I18nContext.current().t("errors.roles.roleSuperuserLimit")}`,
-  //       HttpStatus.NOT_FOUND
-  //     );
-  //   }
-  //   //==== If current role id === id in role in database, and role name is unique => update current role =======
+    if (role.type === UserRoles.superadmin) {
+      throw new HttpException(
+        `It is not allowed to delete superadmin role`,
+        HttpStatus.UNPROCESSABLE_ENTITY
+      );
+    }
 
-  //   Object.assign(role, createRoleDto);
-  //   role.updated = new Date();
-  //   return await this.roleRepository.updateRole(role);
-  // }
+    return await this.roleRepository.delete({ id: +id });
+  }
+
+  async updateRole(id: string, roleDto: RoleDto): Promise<RoleEntity> {
+    const role = await this.roleRepository.findOneBy({ id: +id });
+
+    if (!role) {
+      throw new HttpException(`Role does not exist`, HttpStatus.BAD_REQUEST);
+    }
+
+    // check if role with name that supposed to be assigned already exists
+    const rolesByName = await this.roleRepository.findBy({
+      name: roleDto.name,
+    });
+    if (
+      rolesByName?.length &&
+      (rolesByName.length > 1 || rolesByName[0]?.id !== +id)
+    ) {
+      throw new HttpException(
+        `Role with name '${roleDto.name}' already exists`,
+        HttpStatus.UNPROCESSABLE_ENTITY
+      );
+    }
+
+    Object.assign(role, roleDto);
+    role.updated = new Date();
+    return await this.roleRepository.save(role);
+  }
 }

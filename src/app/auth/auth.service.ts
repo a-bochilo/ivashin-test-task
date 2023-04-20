@@ -1,4 +1,9 @@
-import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
+import {
+  HttpException,
+  HttpStatus,
+  Injectable,
+  UnauthorizedException,
+} from "@nestjs/common";
 import { InjectRepository } from "@nestjs/typeorm";
 import { Repository } from "typeorm";
 
@@ -24,17 +29,15 @@ export class AuthService {
   constructor(
     @InjectRepository(UserEntity)
     private readonly userRepository: Repository<UserEntity>,
-    @InjectRepository(UserEntity)
+    @InjectRepository(RoleEntity)
     private readonly roleRepository: Repository<RoleEntity>,
     private readonly securityService: SecurityService
   ) {}
 
   // ========================== signUp ==============================
   async signUp(dto: UserDto): Promise<TokenDto> {
-    const userFromDB = await this.userRepository.findOne({
-      where: {
-        email: dto.email,
-      },
+    const userFromDB = await this.userRepository.findOneBy({
+      email: dto.email,
     });
 
     if (userFromDB)
@@ -43,9 +46,7 @@ export class AuthService {
         HttpStatus.UNPROCESSABLE_ENTITY
       );
 
-    const role = await this.roleRepository.findOne({
-      where: { type: UserRoles.user },
-    });
+    const role = await this.roleRepository.findOneBy({ type: UserRoles.user });
 
     // // Line below could be activited in case it neccessary to hash passwords
     // const hashPassword = await hashSync(dto.password, 5);
@@ -54,6 +55,7 @@ export class AuthService {
       created: new Date(),
       updated: new Date(),
       ...dto,
+      roleType: role.type,
       role,
     });
 
@@ -75,7 +77,7 @@ export class AuthService {
     if (!userFromDB) {
       throw new HttpException(
         `User ${dto.email} does not exist`,
-        HttpStatus.UNPROCESSABLE_ENTITY
+        HttpStatus.NOT_FOUND
       );
     }
 
@@ -83,8 +85,7 @@ export class AuthService {
     // const isPasswordCorrect = await compare(dto.password, userFromDB.password);
     const isPasswordCorrect = dto.password === userFromDB.password;
 
-    if (!isPasswordCorrect)
-      throw new HttpException("Not authorized", HttpStatus.UNAUTHORIZED);
+    if (!isPasswordCorrect) throw new UnauthorizedException();
 
     const token = this.securityService.generateJwt(userFromDB);
 

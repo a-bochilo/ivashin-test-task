@@ -7,7 +7,7 @@ import { UserRoles } from "../../../shared/types/user-roles.enum";
 // ========================== swagger ====================================
 import { ApiProperty } from "@nestjs/swagger";
 
-export class CreateRoleDto {
+export class RoleDto {
   @ApiProperty({
     example: "some role",
     description: "Role name",

@@ -10,16 +10,12 @@ import { PassportModule } from "@nestjs/passport";
 // ========================== jwt ==========================
 import { JwtStrategy } from "./jwt.strategy";
 
-// ========================== services & controllers ==========================
+// ========================== services ==========================
 import { SecurityService } from "./security.service";
 
 // =========================== entities ==========================
 import { UserEntity } from "../users/entities/user.entity";
 import { RoleEntity } from "../roles/entities/role.entity";
-
-// ========================== repository ==========================
-import { UserRepository } from "../users/repos/user.repository";
-import { RoleRepository } from "../roles/repos/role.repository";
 
 @Module({
   imports: [
@@ -31,7 +27,7 @@ import { RoleRepository } from "../roles/repos/role.repository";
     }),
   ],
   controllers: [],
-  providers: [SecurityService, JwtStrategy, UserRepository, RoleRepository],
+  providers: [SecurityService, JwtStrategy],
   exports: [SecurityService],
 })
 export class SecurityModule {}

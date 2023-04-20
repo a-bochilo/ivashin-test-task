@@ -1,14 +1,23 @@
-import { Column, Entity, Index, JoinColumn, ManyToOne } from "typeorm";
+import {
+  Column,
+  Entity,
+  Index,
+  JoinColumn,
+  ManyToOne,
+  OneToOne,
+} from "typeorm";
 
-// ========================== entities ==================================
+// ========================== entities ==========================
 import { UUIDEntity } from "../../../shared/entities/uuid.entity";
 import { RoleEntity } from "../../roles/entities/role.entity";
+import { ImageEntity } from "../../image/entities/image.entity";
 
-// ========================== enums ======================================
+// ========================== enums ==========================
 import { UserRoles } from "../../../shared/types/user-roles.enum";
 
-// ========================== swagger ====================================
+// ========================== swagger ==========================
 import { ApiProperty } from "@nestjs/swagger";
+import { Blob } from "buffer";
 
 @Entity({ name: "users" })
 export class UserEntity extends UUIDEntity {
@@ -46,12 +55,11 @@ export class UserEntity extends UUIDEntity {
   lastName!: string;
 
   @ApiProperty({
-    example: "https://image-url.com",
-    description: "Image url",
-    required: true,
+    description: "User image",
+    required: false,
   })
-  @Column({ name: "image" })
-  image!: string;
+  @Column({ name: "image_id", nullable: true })
+  imageId?: string;
 
   @ApiProperty({
     description: "Pdf data",
@@ -70,9 +78,11 @@ export class UserEntity extends UUIDEntity {
   roleType: UserRoles;
 
   @ManyToOne(() => RoleEntity, (role) => role.users)
-  @JoinColumn([
-    { name: "role_id", referencedColumnName: "id" },
-    { name: "role_type", referencedColumnName: "type" },
-  ])
+  @JoinColumn({ name: "role_id" })
   role: RoleEntity;
+
+  @OneToOne(() => ImageEntity, { nullable: true })
+  @JoinColumn({ name: "image_id" })
+  image?: ImageEntity;
+  user: ArrayBuffer;
 }

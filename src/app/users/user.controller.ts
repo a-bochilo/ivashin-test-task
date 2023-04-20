@@ -7,36 +7,47 @@ import {
   Param,
   Post,
   Put,
-  Query,
+  Res,
+  UploadedFile,
+  UseInterceptors,
   UsePipes,
   ValidationPipe,
 } from "@nestjs/common";
+import { DeleteResult } from "typeorm";
+import { FileInterceptor } from "@nestjs/platform-express";
+import { Express, Response } from "express";
+import { Readable } from "stream";
 
-// ========================== decorators ================================
+// ========================== decorators ==========================
 import { AuthPermissionsGuard } from "../security/decorators/auth-permissions-guard.decorator";
 import { User } from "./decorators/user.decorator";
 
-// ========================== swagger ===================================
-import { ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
-
 // ========================== entities & dto's ==========================
 import { UserEntity } from "./entities/user.entity";
-import { AssignUserRoleDto } from "./dtos/user-assigne-role.dto";
+import { UserAssignRoleDto } from "./dtos/user-assigne-role.dto";
 import { UserDto } from "./dtos/user.dto";
+import { UserGeneratePdfDto } from "./dtos/user-generate-pdf.dto";
 
-// ========================== enums =====================================
+// ========================== enums ==========================
 import { UserPermissions } from "../../shared/types/user-permissions.enum";
 
-// ========================== services ====================
+// ========================== services ==========================
 import { UserService } from "./user.service";
+import { ImageService } from "../image/image.service";
+
+// ========================== swagger ==========================
+import { ApiOperation, ApiResponse, ApiTags } from "@nestjs/swagger";
 
 @ApiTags("Users controller")
 @Controller("users")
 export class UserController {
-  constructor(private readonly userService: UserService) {}
+  constructor(
+    private readonly userService: UserService,
+    private readonly imageService: ImageService
+  ) {}
 
   //=========== get all users ===========
-  @Get("")
+  @Get()
   @AuthPermissionsGuard(UserPermissions.getAllUsers)
   @ApiOperation({ summary: "Get all users" })
   @ApiResponse({
@@ -45,112 +56,165 @@ export class UserController {
     type: UserDto,
     isArray: true,
   })
-  @UsePipes(new ValidationPipe())
   async getAllUsers(): Promise<UserDto[]> {
     const usersFromDB = await this.userService.getAllUsers();
     return usersFromDB.map((user) => UserDto.fromEntity(user));
   }
 
-  // //=============================== the user can get his profile ==================================
-  // @Get("/profile")
-  // @AuthPermissionsGuard(UserPermissions.getUserProfile)
-  // @ApiOperation({ summary: "Get current user" })
-  // @ApiResponse({
-  //   status: HttpStatus.OK,
-  //   description: "HttpStatus:200:OK",
-  //   type: UserDetailsEntity,
-  //   isArray: false,
-  // })
-  // @UsePipes(new ValidationPipe())
-  // async getUserProfile(
-  //   @User() user: UserSessionDto
-  // ): Promise<UserDetailsEntity> {
-  //   return await this.userService.getDetailsById(user.id);
-  // }
+  //=========== get current user profile ===========
+  @Get("/profile")
+  @AuthPermissionsGuard(UserPermissions.getUserProfile)
+  @ApiOperation({ summary: "Get current user profile" })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: "HttpStatus:200:OK",
+    type: UserDto,
+  })
+  async getCurrentUser(@User() user: UserDto): Promise<UserDto> {
+    const userFromDB = await this.userService.getById(user.id);
 
-  // //=============================== the user can update his profile ==================================
-  // @Put("/profile")
-  // @AuthPermissionsGuard(UserPermissions.updateUserProfile)
-  // @ApiOperation({ summary: "Update user details (user)" })
-  // @ApiResponse({
-  //   status: HttpStatus.OK,
-  //   description: "HttpStatus:200:OK",
-  //   type: UserEntity,
-  //   isArray: false,
-  // })
-  // @UsePipes(new ValidationPipe())
-  // async updateUserProfile(
-  //   @Body() info: UpdateUserDto,
-  //   @User() user: UserSessionDto
-  // ): Promise<UserEntity> {
-  //   return await this.userService.updateUserDetails(info, user.id);
-  // }
+    return UserDto.fromEntity(userFromDB);
+  }
 
-  // //=============================== admin can get current user profile =================================
-  // @Get("/:userId")
-  // @AuthPermissionsGuard(UserPermissions.getUserById)
-  // @ApiOperation({ summary: "Get user by id (admin)" })
-  // @ApiResponse({
-  //   status: HttpStatus.OK,
-  //   description: "HttpStatus:200:OK",
-  //   type: UserDetailsEntity,
-  //   isArray: false,
-  // })
-  // @UsePipes(new ValidationPipe())
-  // async getUserById(
-  //   @Param("userId") userId: string
-  // ): Promise<UserDetailsEntity> {
-  //   return await this.userService.getDetailsById(userId);
-  // }
+  //=========== update current user data ===========
+  @Put("/profile")
+  @AuthPermissionsGuard(UserPermissions.updateUserProfile)
+  @ApiOperation({ summary: "Update current user profile" })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: "HttpStatus:200:OK",
+    type: UserDto,
+  })
+  @UsePipes(new ValidationPipe())
+  async updateUserProfile(
+    @User() user: UserDto,
+    @Body() userDto: UserDto
+  ): Promise<UserDto> {
+    const updatedUser = await this.userService.updateUserProfile(
+      userDto,
+      user.id
+    );
 
-  // //=============================== admin can update current user profile =================================
-  // @Put("/:userId")
-  // @AuthPermissionsGuard(UserPermissions.updateDetails)
-  // @ApiOperation({ summary: "Update user details (admin)" })
-  // @ApiResponse({
-  //   status: HttpStatus.OK,
-  //   description: "HttpStatus:200:OK",
-  //   type: UserEntity,
-  //   isArray: false,
-  // })
-  // @UsePipes(new ValidationPipe())
-  // async updateDetails(
-  //   @Body() info: UpdateUserDto,
-  //   @Param("userId") userId: string
-  // ): Promise<UserEntity> {
-  //   return await this.userService.updateUserDetails(info, userId);
-  // }
+    return UserDto.fromEntity(updatedUser);
+  }
 
-  // //=============================== admin can delete current user ==========================================
-  // @Delete("/:userId")
-  // @AuthPermissionsGuard(UserPermissions.deleteUserById)
-  // @ApiOperation({ summary: "Delete user by id (change isActive) (admin)" })
-  // @ApiResponse({
-  //   status: HttpStatus.OK,
-  //   description: "HttpStatus:200:OK",
-  //   type: UserEntity,
-  //   isArray: false,
-  // })
-  // @UsePipes(new ValidationPipe())
-  // async deleteUserById(@Param("userId") userId: string): Promise<UserEntity> {
-  //   return await this.userService.deleteUserById(userId);
-  // }
+  //=========== upload current user image ===========
+  @Post("/image")
+  @AuthPermissionsGuard(UserPermissions.updateUserProfile)
+  @ApiOperation({ summary: "Upload current user image" })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: "HttpStatus:200:OK",
+    type: UserDto,
+  })
+  @UsePipes(new ValidationPipe())
+  @UseInterceptors(FileInterceptor("file"))
+  async uploadUserImage(
+    @User() user: UserDto,
+    @UploadedFile() file: Express.Multer.File
+  ): Promise<UserDto> {
+    const updatedUser = await this.userService.addImage(
+      user.id,
+      file.buffer,
+      file.originalname
+    );
 
-  // //=============================== admin can assign role for current user ===================================
-  // @Post("/assignRole/:userId")
-  // @AuthPermissionsGuard(UserPermissions.assignRoleById)
-  // @ApiOperation({ summary: "Assign role for user by id (admin)" })
-  // @ApiResponse({
-  //   status: HttpStatus.OK,
-  //   description: "HttpStatus:200:OK",
-  //   type: UserEntity,
-  //   isArray: false,
-  // })
-  // @UsePipes(new ValidationPipe())
-  // async assignRoleById(
-  //   @Body() assignUserRoleDto: AssignUserRoleDto,
-  //   @Param("userId") userId: string
-  // ): Promise<UserEntity> {
-  //   return await this.userService.assignUserRole(assignUserRoleDto, userId);
-  // }
+    return UserDto.fromEntity(updatedUser);
+  }
+
+  //=========== get current user image ===========
+  @Get("/image")
+  @AuthPermissionsGuard(UserPermissions.getUserProfile)
+  @ApiOperation({ summary: "Get current user image" })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: "HttpStatus:200:OK",
+  })
+  async getCurrentUserImage(@User() user: UserDto, @Res() response: Response) {
+    const userFromDb = await this.userService.getById(user.id);
+    const image = await this.imageService.getById(userFromDb.imageId);
+
+    const stream = Readable.from(image.data);
+    stream.pipe(response);
+  }
+
+  //=========== generate current user pdf ===========
+  @Post("/pdf")
+  @AuthPermissionsGuard(UserPermissions.updateUserProfile)
+  @ApiOperation({ summary: "Generate current user pdf" })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: "HttpStatus:200:OK",
+  })
+  async generateCurrentUserPdf(
+    @Body() generatePdfDto: UserGeneratePdfDto
+  ): Promise<boolean> {
+    return await this.userService.generatePdf(generatePdfDto.email);
+  }
+
+  //=========== get current user pdf ===========
+  @Get("/pdf")
+  @AuthPermissionsGuard(UserPermissions.getUserProfile)
+  @ApiOperation({ summary: "Get current user pdf" })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: "HttpStatus:200:OK",
+  })
+  async getCurrentUserPdf(@User() user: UserDto, @Res() response: Response) {
+    const pdf = await this.userService.getPdf(user.id);
+
+    const stream = Readable.from(pdf);
+    stream.pipe(response);
+  }
+
+  //=========== assign role to user by userId ===========
+  @Post("/assign-role/:id")
+  @AuthPermissionsGuard(UserPermissions.assignRoleById)
+  @ApiOperation({ summary: "Assign role to user by id" })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: "HttpStatus:200:OK",
+    type: UserDto,
+  })
+  @UsePipes(new ValidationPipe())
+  async assignRoleById(
+    @Body() assignUserRoleDto: UserAssignRoleDto,
+    @Param("id") id: string
+  ): Promise<UserDto> {
+    const updatedUser = await this.userService.assignUserRole(
+      assignUserRoleDto,
+      id
+    );
+
+    return UserDto.fromEntity(updatedUser);
+  }
+
+  //=========== get user by id ===========
+  @Get("/:id")
+  @AuthPermissionsGuard(UserPermissions.getUserById)
+  @ApiOperation({ summary: "Get user by id (admin)" })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: "HttpStatus:200:OK",
+    type: UserDto,
+  })
+  async getUserById(@Param("id") id: string): Promise<UserDto> {
+    const userFromDB = await this.userService.getById(id);
+
+    return UserDto.fromEntity(userFromDB);
+  }
+
+  //=========== delete user by id ===========
+  @Delete("/:id")
+  @AuthPermissionsGuard(UserPermissions.deleteUserById)
+  @ApiOperation({ summary: "Delete user by id" })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: "HttpStatus:200:OK",
+    type: UserEntity,
+  })
+  @UsePipes(new ValidationPipe())
+  async deleteUserById(@Param("id") id: string): Promise<DeleteResult> {
+    return await this.userService.deleteById(id);
+  }
 }

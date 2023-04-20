@@ -11,23 +11,14 @@ import { SecurityModule } from "../security/security.module";
 import { UserEntity } from "../users/entities/user.entity";
 import { RoleEntity } from "./entities/role.entity";
 
-// ========================== repositories ==============================
-import { RoleRepository } from "./repos/role.repository";
-
 // ========================== services & controllers ====================
 import { RoleService } from "./role.service";
 import { RoleController } from "./role.controller";
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([
-      RoleEntity,
-      UserEntity,
-    ]),
-    SecurityModule,
-  ],
+  imports: [TypeOrmModule.forFeature([RoleEntity, UserEntity]), SecurityModule],
   controllers: [RoleController],
-  providers: [RoleService, RoleRepository],
+  providers: [RoleService],
   exports: [RoleService],
 })
 export class RoleModule {}

@@ -1,11 +1,11 @@
-// ========================== nest ==========================
 import { HttpException, HttpStatus, Injectable } from "@nestjs/common";
 import { JwtService } from "@nestjs/jwt";
+import { Repository } from "typeorm";
+import { InjectRepository } from "@nestjs/typeorm";
 
 // ========================== repository & entities ==========================
-import { UserRepository } from "../users/repos/user.repository";
-import { RoleRepository } from "../roles/repos/role.repository";
 import { UserEntity } from "../users/entities/user.entity";
+import { RoleEntity } from "../roles/entities/role.entity";
 
 // ========================== dto ==========================
 import { UserDto } from "../users/dtos/user.dto";
@@ -14,8 +14,10 @@ import { TokenDto } from "./dtos/token.dto";
 @Injectable()
 export class SecurityService {
   constructor(
-    private readonly userRepository: UserRepository,
-    private readonly roleRepository: RoleRepository,
+    @InjectRepository(UserEntity)
+    private readonly userRepository: Repository<UserEntity>,
+    @InjectRepository(RoleEntity)
+    private readonly roleRepository: Repository<RoleEntity>,
     private readonly jwtService: JwtService
   ) {}
 
@@ -25,13 +27,18 @@ export class SecurityService {
     return { token };
   }
 
-  async getUser(id: string): Promise<UserEntity> {
-    const user = await this.userRepository.getById(id);
+  async getUserWithRole(id: string): Promise<UserEntity> {
+    const user = await this.userRepository.findOne({
+      where: {
+        id,
+      },
+      relations: ["role"],
+    });
+
     if (!user) {
       throw new HttpException(`User does not exist`, HttpStatus.NOT_FOUND);
     }
-    //! Create request to db with relations
-    user.role = await this.roleRepository.getById(user.roleId);
+
     return user;
   }
 }

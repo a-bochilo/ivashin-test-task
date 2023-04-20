@@ -30,15 +30,6 @@ export class UserDto extends UUIDDto {
   email!: string;
 
   @ApiProperty({
-    example: "password",
-    description: "Password",
-    required: true,
-  })
-  @IsOptional()
-  @IsString()
-  password?: string;
-
-  @ApiProperty({
     example: "Elvis",
     description: "Name",
     required: true,
@@ -57,38 +48,36 @@ export class UserDto extends UUIDDto {
   lastName!: string;
 
   @ApiProperty({
-    example: "https://image-url.com",
-    description: "Image url",
-    required: true,
+    example: "23b36309",
+    description: "Image id",
+    required: false,
   })
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  @IsUrl()
-  image!: string;
+  imageId?: string;
 
-  @ApiProperty({ example: 1, description: "Role id", required: true })
+  @ApiProperty({ example: 1, description: "Role id", required: false })
   @IsOptional()
   @IsNumber()
   roleId?: number;
 
-  @ApiProperty({ example: "user", description: "Role type", required: true })
+  @ApiProperty({ example: "user", description: "Role type", required: false })
   @IsOptional()
   @IsEnum(UserRoles)
   roleType?: UserRoles;
 
   public static fromEntity(entity: UserEntity): UserDto {
-    const outputDto = new UserDto();
-    outputDto.id = entity.id;
-    outputDto.email = entity.email;
-    outputDto.firstName = entity.firstName;
-    outputDto.lastName = entity.lastName;
-    outputDto.image = entity.image;
-    outputDto.created = entity.created.valueOf();
-    outputDto.updated = entity.updated.valueOf();
-    outputDto.roleId = entity.roleId;
-    outputDto.roleType = entity.roleType;
-
-    return outputDto;
+    return {
+      id: entity.id,
+      email: entity.email,
+      firstName: entity.firstName,
+      lastName: entity.lastName,
+      created: entity.created.valueOf(),
+      updated: entity.updated.valueOf(),
+      imageId: entity.imageId,
+      roleId: entity.roleId,
+      roleType: entity.roleType,
+    };
   }
 
   public static fromJwt(dto: UserDto): UserDto {
@@ -101,6 +90,7 @@ export class UserDto extends UUIDDto {
     outputDto.email = dto.email;
     outputDto.roleId = dto.roleId;
     outputDto.roleType = dto.roleType;
+    outputDto.imageId = dto.imageId;
 
     return outputDto;
   }
